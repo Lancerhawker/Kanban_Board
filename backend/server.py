@@ -14,6 +14,9 @@ from pathlib import Path
 from dotenv import load_dotenv
 import motor.motor_asyncio
 import asyncio
+from sendgrid import SendGridAPIClient
+from sendgrid.helpers.mail import Mail
+import random
 
 # async def test_db():
 #     client = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://arinjain789123:Gamerboi123@kanban.gespaxs.mongodb.net/kanban_todo_app?retryWrites=true&w=majority")
@@ -129,6 +132,13 @@ class ProjectWithTasks(BaseModel):
     updated_at: datetime
     tasks: List[Task] = []
 
+# OTP Model
+class OTPRequest(BaseModel):
+    email: EmailStr
+    otp: Optional[str] = None
+    otp_token: Optional[str] = None
+    new_password: Optional[str] = None
+
 # Utility functions
 def hash_password(password: str) -> str:
     return pwd_context.hash(password)
@@ -170,6 +180,54 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
         )
     
     return User(**user_doc)
+
+# Utility: Send email using SendGrid API
+def send_email(to_email: str, subject: str, body: str, otp: str = None):
+    sendgrid_api_key = os.environ.get('SENDGRID_API_KEY')
+    from_email = os.environ.get('FROM_EMAIL')
+    if not sendgrid_api_key or not from_email:
+        raise Exception('SENDGRID_API_KEY and FROM_EMAIL must be set in environment')
+
+    # If sending OTP, use a beautiful HTML template
+    if otp:
+        logo_url = 'https://kanban-board-git-main-lancerhawks-projects.vercel.app/logo.png'
+        html_content = f'''
+        <div style="font-family: 'Segoe UI', Arial, sans-serif; background: #f6f8fa; padding: 40px 0;">
+          <div style="max-width: 480px; margin: 0 auto; background: #fff; border-radius: 12px; box-shadow: 0 2px 8px rgba(80,80,120,0.08); padding: 32px 32px 24px 32px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <img src='{logo_url}' alt='TaskFlow' width='180' style='margin-bottom: 12px;'/>
+              <h2 style="margin: 0; color: #4f46e5; font-size: 2rem; font-weight: 700;">Password Reset OTP</h2>
+            </div>
+            <p style="font-size: 1.1rem; color: #222; margin-bottom: 18px;">Hello,</p>
+            <p style="font-size: 1.1rem; color: #222; margin-bottom: 18px;">We received a request to reset your password for your TaskFlow account. Use the OTP below to continue:</p>
+            <div style="text-align: center; margin: 32px 0;">
+              <span style="display: inline-block; font-size: 2.2rem; letter-spacing: 0.3rem; color: #fff; background: linear-gradient(90deg,#6366f1,#4f46e5); padding: 16px 40px; border-radius: 10px; font-weight: bold; box-shadow: 0 2px 8px rgba(80,80,120,0.08);">{otp}</span>
+            </div>
+            <p style="font-size: 1rem; color: #444; margin-bottom: 18px;">This OTP is valid for <b>10 minutes</b>. If you did not request a password reset, you can safely ignore this email.</p>
+            <p style="font-size: 1rem; color: #888; margin-top: 32px; text-align: center;">&mdash; Arin Jain</p>
+          </div>
+          <div style="text-align: center; color: #aaa; font-size: 0.95rem; margin-top: 18px;">&copy; {datetime.now().year} TaskFlow. All rights reserved.</div>
+        </div>
+        '''
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject=subject,
+            plain_text_content=body,
+            html_content=html_content
+        )
+    else:
+        message = Mail(
+            from_email=from_email,
+            to_emails=to_email,
+            subject=subject,
+            plain_text_content=body
+        )
+    try:
+        sg = SendGridAPIClient(sendgrid_api_key)
+        sg.send(message)
+    except Exception as e:
+        raise Exception(f'Failed to send email: {e}')
 
 # Auth Routes
 @api_router.post("/auth/register", response_model=Token)
@@ -388,6 +446,62 @@ async def health_check():
         "database": "connected"
     }
 
+# --- Forgot Password: Step 1: Request OTP ---
+@api_router.post('/auth/forgot-password')
+async def forgot_password(data: OTPRequest):
+    user = await db.users.find_one({'email': data.email})
+    if not user:
+        raise HTTPException(status_code=404, detail='Email not registered')
+    otp = str(random.randint(100000, 999999))
+    otp_token = str(uuid.uuid4())
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=10)
+    await db.otps.insert_one({
+        'email': data.email,
+        'otp': otp,
+        'otp_token': otp_token,
+        'expires_at': expires_at
+    })
+    send_email(
+        to_email=data.email,
+        subject='Your OTP for Password Reset',
+        body=f'Your OTP is: {otp}\nIt is valid for 10 minutes.',
+        otp=otp
+    )
+    return {'message': 'OTP sent to email', 'otp_token': otp_token}
+
+# --- Forgot Password: Step 2: Verify OTP ---
+@api_router.post('/auth/verify-otp')
+async def verify_otp(data: OTPRequest):
+    otp_doc = await db.otps.find_one({'email': data.email, 'otp': data.otp, 'otp_token': data.otp_token})
+    if not otp_doc:
+        raise HTTPException(status_code=400, detail='Invalid OTP or token')
+    expires_at = otp_doc['expires_at']
+    if expires_at.tzinfo is None:
+        from datetime import timezone
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail='OTP expired')
+    return {'message': 'OTP verified', 'otp_token': data.otp_token}
+
+# --- Forgot Password: Step 3: Reset Password ---
+@api_router.post('/auth/reset-password')
+async def reset_password(data: OTPRequest):
+    otp_doc = await db.otps.find_one({'email': data.email, 'otp_token': data.otp_token})
+    if not otp_doc:
+        raise HTTPException(status_code=400, detail='Invalid or expired OTP token')
+    expires_at = otp_doc['expires_at']
+    if expires_at.tzinfo is None:
+        from datetime import timezone
+        expires_at = expires_at.replace(tzinfo=timezone.utc)
+    if expires_at < datetime.now(timezone.utc):
+        raise HTTPException(status_code=400, detail='OTP expired')
+    # Update user password
+    hashed = hash_password(data.new_password)
+    await db.users.update_one({'email': data.email}, {'$set': {'hashed_password': hashed}})
+    # Remove OTP after use
+    await db.otps.delete_one({'_id': otp_doc['_id']})
+    return {'message': 'Password reset successful'}
+
 # Include the router in the main app
 app.include_router(api_router)
 
@@ -413,5 +527,4 @@ async def shutdown_db_client():
 
 if __name__ == "__main__":
     import uvicorn
-    port = int(os.environ.get("PORT", 8000))  # fallback to 8000 for local dev
-    uvicorn.run("server:app", host="0.0.0.0", port=port)
+    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
