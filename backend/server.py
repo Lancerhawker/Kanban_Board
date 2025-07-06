@@ -413,4 +413,5 @@ async def shutdown_db_client():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("server:app", host="127.0.0.1", port=8000, reload=True)
+    port = int(os.environ.get("PORT", 8000))  # fallback to 8000 for local dev
+    uvicorn.run("server:app", host="0.0.0.0", port=port)
