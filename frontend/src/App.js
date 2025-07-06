@@ -2,6 +2,7 @@ import React, { useState, useEffect, createContext, useContext } from 'react';
 import axios from 'axios';
 import './App.css';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
+import logo from './assets/logoicon.png';
 
 const BACKEND_URL = process.env.REACT_APP_BACKEND_URL;
 const API = `${BACKEND_URL}/api`;
@@ -101,16 +102,58 @@ const AuthForm = () => {
   const [formData, setFormData] = useState({
     name: '',
     email: '',
-    password: ''
+    password: '',
+    confirmPassword: ''
   });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const { login, register } = useAuth();
 
+  // Password validation state
+  const [touched, setTouched] = useState({ password: false, confirmPassword: false });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password validation rules
+  const passwordRules = [
+    {
+      label: 'At least 8 characters',
+      test: (pw) => pw.length >= 8,
+    },
+    {
+      label: 'One capital letter',
+      test: (pw) => /[A-Z]/.test(pw),
+    },
+    {
+      label: 'One or more numbers',
+      test: (pw) => /[0-9]/.test(pw),
+    },
+    {
+      label: 'Four or more lowercase letters',
+      test: (pw) => (pw.match(/[a-z]/g) || []).length >= 4,
+    },
+  ];
+
+  const passwordValid = passwordRules.every(rule => rule.test(formData.password));
+  const passwordsMatch = formData.password === formData.confirmPassword;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+
+    if (!isLogin) {
+      if (!passwordValid) {
+        setError('Password does not meet requirements.');
+        setLoading(false);
+        return;
+      }
+      if (!passwordsMatch) {
+        setError('Passwords do not match.');
+        setLoading(false);
+        return;
+      }
+    }
 
     const result = isLogin 
       ? await login(formData.email, formData.password)
@@ -129,15 +172,23 @@ const AuthForm = () => {
     });
   };
 
+  const handleBlur = (e) => {
+    setTouched({ ...touched, [e.target.name]: true });
+  };
+
+  const [showForgot, setShowForgot] = useState(false);
+
+  if (showForgot) {
+    return <ForgotPassword onBackToLogin={() => setShowForgot(false)} />;
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center px-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 min-h-90 max-h-[40rem] overflow-y-auto">
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-r from-purple-500 to-indigo-600 rounded-full mx-auto mb-4 flex items-center justify-center">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-            </svg>
-          </div>
+        <div className="w-16 h-16  rounded-full mx-auto mb-4 flex items-center justify-center">
+<img src={logo} />
+</div>
           <h2 className="text-3xl font-bold text-gray-900 mb-2">
             {isLogin ? 'Welcome Back' : 'Create Account'}
           </h2>
@@ -177,16 +228,86 @@ const AuthForm = () => {
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Password</label>
-            <input
-              type="password"
-              name="password"
-              required
-              value={formData.password}
-              onChange={handleChange}
-              className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200"
-              placeholder="Enter your password"
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                required
+                value={formData.password}
+                onChange={handleChange}
+                onBlur={handleBlur}
+                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200 pr-12"
+                placeholder="Enter your password"
+                autoComplete="new-password"
+              />
+              <button
+                type="button"
+                tabIndex={-1}
+                className="absolute right-3 top-4 text-gray-400 hover:text-gray-700 focus:outline-none"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                ) : (
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg>
+                )}
+              </button>
+            </div>
+            {/* Password checklist (only show on register) */}
+            {!isLogin && (touched.password || formData.password) && (
+              <ul className="mt-2 space-y-1 text-sm">
+                {passwordRules.map((rule, idx) => (
+                  <li key={idx} className="flex items-center gap-2">
+                    <span className={rule.test(formData.password) ? 'text-green-600' : 'text-gray-400'}>
+                      {rule.test(formData.password) ? (
+                        <svg className="inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                      ) : (
+                        <svg className="inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                      )}
+                    </span>
+                    <span className={rule.test(formData.password) ? 'text-gray-800' : 'text-gray-500'}>{rule.label}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
+
+          {/* Confirm Password (only on register) */}
+          {!isLogin && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm Password</label>
+              <div className="relative">
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  name="confirmPassword"
+                  required
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  onBlur={handleBlur}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200 pr-12"
+                  placeholder="Re-enter your password"
+                  autoComplete="new-password"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  className="absolute right-3 top-4 text-gray-400 hover:text-gray-700 focus:outline-none"
+                  onClick={() => setShowConfirmPassword((v) => !v)}
+                  aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+                >
+                  {showConfirmPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg>
+                  )}
+                </button>
+              </div>
+              {touched.confirmPassword && formData.confirmPassword && !passwordsMatch && (
+                <div className="text-red-600 text-xs mt-1">Passwords do not match</div>
+              )}
+            </div>
+          )}
 
           {error && (
             <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm">
@@ -196,7 +317,7 @@ const AuthForm = () => {
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || (!isLogin && (!passwordValid || !passwordsMatch))}
             className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-4 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50"
           >
             {loading ? 'Please wait...' : (isLogin ? 'Sign In' : 'Create Account')}
@@ -205,11 +326,20 @@ const AuthForm = () => {
 
         <div className="mt-6 text-center">
           <button
-            onClick={() => setIsLogin(!isLogin)}
-            className="text-purple-600 hover:text-purple-700 font-medium"
+            onClick={() => { setIsLogin(!isLogin); setError(''); setFormData({ name: '', email: '', password: '', confirmPassword: '' }); setTouched({ password: false, confirmPassword: false }); }}
+            className="text-blue-600 hover:text-black-700 font-medium p-2 no-gradient"
           >
             {isLogin ? "Don't have an account? Sign up" : "Already have an account? Sign in"}
           </button>
+          {isLogin && (
+            <button
+              type="button"
+              onClick={() => setShowForgot(true)}
+              className="text-purple-600 hover:text-black-700 font-medium p-2 no-gradient block w-full"
+            >
+              Forgot Password?
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -1485,6 +1615,178 @@ const ProjectManager = ({ projects, setProjects, fetchDashboardData }) => {
           </div>
         </div>
       )}
+    </div>
+  );
+};
+
+// Forgot Password Component
+const ForgotPassword = ({ onBackToLogin }) => {
+  const [step, setStep] = useState(1); // 1: email, 2: otp, 3: reset
+  const [email, setEmail] = useState('');
+  const [otp, setOtp] = useState('');
+  const [serverOtpToken, setServerOtpToken] = useState(''); // for backend session/OTP
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
+  // Password reset
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmNewPassword, setShowConfirmNewPassword] = useState(false);
+  const [touched, setTouched] = useState({ newPassword: false, confirmNewPassword: false });
+
+  // Password validation rules (reuse from register)
+  const passwordRules = [
+    { label: 'At least 8 characters', test: (pw) => pw.length >= 8 },
+    { label: 'One capital letter', test: (pw) => /[A-Z]/.test(pw) },
+    { label: 'One or more numbers', test: (pw) => /[0-9]/.test(pw) },
+    { label: 'Four or more lowercase letters', test: (pw) => (pw.match(/[a-z]/g) || []).length >= 4 },
+  ];
+  const passwordValid = passwordRules.every(rule => rule.test(newPassword));
+  const passwordsMatch = newPassword === confirmNewPassword;
+
+  // Step 1: Request OTP
+  const handleRequestOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setSuccessMsg('');
+    try {
+      const res = await axios.post(`${API}/auth/forgot-password`, { email });
+      setServerOtpToken(res.data.otp_token); // if backend returns a token/session
+      setStep(2);
+      setSuccessMsg('OTP sent to your email.');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to send OTP.');
+    } finally { setLoading(false); }
+  };
+
+  // Step 2: Verify OTP
+  const handleVerifyOtp = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setSuccessMsg('');
+    try {
+      const res = await axios.post(`${API}/auth/verify-otp`, { email, otp, otp_token: serverOtpToken });
+      setServerOtpToken(res.data.otp_token); // update if backend returns a new token
+      setStep(3);
+      setSuccessMsg('OTP verified. You can now reset your password.');
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Invalid OTP.');
+    } finally { setLoading(false); }
+  };
+
+  // Step 3: Reset Password
+  const handleResetPassword = async (e) => {
+    e.preventDefault();
+    setLoading(true); setError(''); setSuccessMsg('');
+    if (!passwordValid) {
+      setError('Password does not meet requirements.'); setLoading(false); return;
+    }
+    if (!passwordsMatch) {
+      setError('Passwords do not match.'); setLoading(false); return;
+    }
+    try {
+      await axios.post(`${API}/auth/reset-password`, {
+        email, otp_token: serverOtpToken, new_password: newPassword
+      });
+      setSuccessMsg('Password reset successful! You can now log in.');
+      setTimeout(() => { onBackToLogin(); }, 2000);
+    } catch (err) {
+      setError(err.response?.data?.detail || 'Failed to reset password.');
+    } finally { setLoading(false); }
+  };
+
+  const handleBlur = (e) => {
+    setTouched({ ...touched, [e.target.name]: true });
+  };
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100 flex items-center justify-center px-4">
+      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl p-8 min-h-90 max-h-[35rem] overflow-y-auto">
+        <div className="text-center mb-8">
+          <div className="w-16 h-16  rounded-full mx-auto mb-4 flex items-center justify-center">
+            <img src={logo} />
+          </div>
+          <h2 className="text-3xl font-bold text-gray-900 mb-2">Forgot Password</h2>
+          <p className="text-gray-600">{step === 1 ? 'Enter your registered email' : step === 2 ? 'Enter the OTP sent to your email' : 'Reset your password'}</p>
+        </div>
+        {step === 1 && (
+          <form onSubmit={handleRequestOtp} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+              <input type="email" required value={email} onChange={e => setEmail(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200" placeholder="Enter your registered email" />
+            </div>
+            {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm">{error}</div>}
+            {successMsg && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-green-700 text-sm">{successMsg}</div>}
+            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-4 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50">{loading ? 'Please wait...' : 'Send OTP'}</button>
+            <button type="button" onClick={onBackToLogin} className="w-full text-blue-600 hover:text-black-700 font-medium p-2 no-gradient">Back to Login</button>
+          </form>
+        )}
+        {step === 2 && (
+          <form onSubmit={handleVerifyOtp} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">OTP</label>
+              <input type="text" required value={otp} onChange={e => setOtp(e.target.value)} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200" placeholder="Enter the OTP" />
+            </div>
+            {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm">{error}</div>}
+            {successMsg && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-green-700 text-sm">{successMsg}</div>}
+            <button type="submit" disabled={loading} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-4 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50">{loading ? 'Please wait...' : 'Verify OTP'}</button>
+            <button type="button" onClick={() => setStep(1)} className="w-full text-blue-600 hover:text-black-700 font-medium p-2 no-gradient">Back</button>
+          </form>
+        )}
+        {step === 3 && (
+          <form onSubmit={handleResetPassword} className="space-y-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">New Password</label>
+              <div className="relative">
+                <input type={showNewPassword ? 'text' : 'password'} name="newPassword" required value={newPassword} onChange={e => setNewPassword(e.target.value)} onBlur={handleBlur} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200 pr-12" placeholder="Enter new password" autoComplete="new-password" />
+                <button type="button" tabIndex={-1} className="absolute right-3 top-4 text-gray-400 hover:text-gray-700 focus:outline-none" onClick={() => setShowNewPassword(v => !v)} aria-label={showNewPassword ? 'Hide password' : 'Show password'}>
+                  {showNewPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg>
+                  )}
+                </button>
+              </div>
+              {/* Password checklist */}
+              {(touched.newPassword || newPassword) && (
+                <ul className="mt-2 space-y-1 text-sm">
+                  {passwordRules.map((rule, idx) => (
+                    <li key={idx} className="flex items-center gap-2">
+                      <span className={rule.test(newPassword) ? 'text-green-600' : 'text-gray-400'}>
+                        {rule.test(newPassword) ? (
+                          <svg className="inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" /></svg>
+                        ) : (
+                          <svg className="inline w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                        )}
+                      </span>
+                      <span className={rule.test(newPassword) ? 'text-gray-800' : 'text-gray-500'}>{rule.label}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Confirm New Password</label>
+              <div className="relative">
+                <input type={showConfirmNewPassword ? 'text' : 'password'} name="confirmNewPassword" required value={confirmNewPassword} onChange={e => setConfirmNewPassword(e.target.value)} onBlur={handleBlur} className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-purple-500 focus:border-transparent transition duration-200 pr-12" placeholder="Re-enter new password" autoComplete="new-password" />
+                <button type="button" tabIndex={-1} className="absolute right-3 top-4 text-gray-400 hover:text-gray-700 focus:outline-none" onClick={() => setShowConfirmNewPassword(v => !v)} aria-label={showConfirmNewPassword ? 'Hide password' : 'Show password'}>
+                  {showConfirmNewPassword ? (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                  ) : (
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575m2.1-2.1A9.956 9.956 0 0112 3c5.523 0 10 4.477 10 10 0 1.657-.402 3.22-1.125 4.575m-2.1 2.1A9.956 9.956 0 0112 21c-5.523 0-10-4.477-10-10 0-1.657.402-3.22 1.125-4.575" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 3l18 18" /></svg>
+                  )}
+                </button>
+              </div>
+              {touched.confirmNewPassword && confirmNewPassword && !passwordsMatch && (
+                <div className="text-red-600 text-xs mt-1">Passwords do not match</div>
+              )}
+            </div>
+            {error && <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-red-700 text-sm">{error}</div>}
+            {successMsg && <div className="bg-green-50 border border-green-200 rounded-xl p-3 text-green-700 text-sm">{successMsg}</div>}
+            <button type="submit" disabled={loading || !passwordValid || !passwordsMatch} className="w-full bg-gradient-to-r from-purple-500 to-indigo-600 text-white py-3 px-4 rounded-xl font-medium hover:from-purple-600 hover:to-indigo-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 transition duration-200 disabled:opacity-50">{loading ? 'Please wait...' : 'Reset Password'}</button>
+            <button type="button" onClick={onBackToLogin} className="w-full text-blue-600 hover:text-black-700 font-medium p-2 no-gradient">Back to Login</button>
+          </form>
+        )}
+      </div>
     </div>
   );
 };

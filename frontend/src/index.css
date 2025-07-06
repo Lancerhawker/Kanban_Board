@@ -51,16 +51,14 @@ button:not(.no-gradient), .bg-gradient-to-r {
     transition: background-position 0.3s ease, box-shadow 0.2s ease, transform 0.3s ease;
   }
   
-  button:hover, .bg-gradient-to-r:hover {
+  button:not(.no-gradient):hover, .bg-gradient-to-r:hover{
     background-position: 100% 0%;
     box-shadow: 0 4px 16px 0 rgba(60, 80, 120, 0.644);
     color: black!important;
     transform: scale(1.05);
   }
-
  
 @media (max-width: 460px){
-
     .task-header{
         display: flex;
         flex-wrap: wrap;
@@ -68,7 +66,6 @@ button:not(.no-gradient), .bg-gradient-to-r {
         align-items: center;
         margin: -10px 0px 40px 0px;
         text-align: center;
-
       }
 
       .btn-tasker{
@@ -76,8 +73,6 @@ button:not(.no-gradient), .bg-gradient-to-r {
         padding: 5px 10px;
         font-size: 0.8rem;
       }
-
-
 }
 
   
