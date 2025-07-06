@@ -15,13 +15,13 @@ from dotenv import load_dotenv
 import motor.motor_asyncio
 import asyncio
 
-async def test_db():
-    client = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://arinjain789123:Gamerboi123@kanban.gespaxs.mongodb.net/kanban_todo_app?retryWrites=true&w=majority")
-    db = client["kanban_todo_app"]
-    collections = await db.list_collection_names()
-    print("Collections:", collections)
+# async def test_db():
+#     client = motor.motor_asyncio.AsyncIOMotorClient("mongodb+srv://arinjain789123:Gamerboi123@kanban.gespaxs.mongodb.net/kanban_todo_app?retryWrites=true&w=majority")
+#     db = client["kanban_todo_app"]
+#     collections = await db.list_collection_names()
+#     print("Collections:", collections)
 
-# asyncio.run(test_db())
+# # asyncio.run(test_db())
 
 
 ROOT_DIR = Path(__file__).parent
